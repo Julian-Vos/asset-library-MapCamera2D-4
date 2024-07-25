@@ -6,6 +6,8 @@ extends Camera2D
 @export_range(0.1, 10) var zoom_factor := 1.25
 ## Minimum [member Camera2D.zoom].
 @export_range(0.01, 100) var zoom_min := 0.1
+## If set to true, the zoom cannot be so small that the outside of the limits are shown
+@export var enforce_zoomed_out_camera_remain_in_its_limits := false
 ## Maximum [member Camera2D.zoom].
 @export_range(0.01, 100) var zoom_max := 10.0
 ## If [code]true[/code], mouse zooming is done relative to the cursor (instead of to the center of the screen).
@@ -179,12 +181,25 @@ func clamp_offset(relative := Vector2()):
 	if relative != Vector2.ZERO:
 		offset += relative
 
+func compute_zoom_min() -> float:
+	if enforce_zoomed_out_camera_remain_in_its_limits:
+		var max_width := limit_right - limit_left
+		var max_height := limit_bottom - limit_top
+		var rect := get_viewport_rect().size
+		var min_zoom_x: float = rect.x / max_width
+		var min_zoom_y: float = rect.y / max_height
+		var computed_zoom_min = max(min_zoom_x, min_zoom_y)
+		return max(computed_zoom_min, zoom_min)
+	else:
+		return zoom_min
+
 func _change_zoom(factor, with_cursor = true):
 	if factor < 1:
-		if _target_zoom.x < zoom_min || is_equal_approx(_target_zoom.x, zoom_min):
+		var effective_zoom_min := compute_zoom_min()
+		if _target_zoom.x < effective_zoom_min || is_equal_approx(_target_zoom.x, zoom_min):
 			return
 		
-		if _target_zoom.y < zoom_min || is_equal_approx(_target_zoom.y, zoom_min):
+		if _target_zoom.y < effective_zoom_min || is_equal_approx(_target_zoom.y, zoom_min):
 			return
 	elif factor > 1:
 		if _target_zoom.x > zoom_max || is_equal_approx(_target_zoom.x, zoom_max):
